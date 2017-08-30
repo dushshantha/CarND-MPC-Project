@@ -1,6 +1,61 @@
 # CarND-Controls-MPC
 Self-Driving Car Engineer Nanodegree Program
 
+## Introduction
+In this project, I am implementing a Model Predictive Control to drive a car around the track. 
+
+Model predictive controllers rely on dynamic models of the process, most often linear empirical models obtained by system identification. The main advantage of MPC is the fact that it allows the current timeslot to be optimized, while keeping future timeslots in account. This is achieved by optimizing a finite time-horizon, but only implementing the current timeslot and then optimizing again, repeatedly[...](https://en.wikipedia.org/wiki/Model_predictive_control)
+
+## The Model
+The model used in this project is a kinematic bicycle model which is a non linear model. Below are the models variables in use.
+
+* x: coordinate
+* y: coordinate
+* psi: heading angle
+* v: speed
+* cte: cross to center error
+* epsi: heading angle error
+
+Below are the 2 actuators 
+* delta: steering
+* a: throttle
+
+The update euqation of the model is as below.
+ ```
+ x_[t+1] = x[t] + v[t] * cos(psi[t]) * dt
+ y_[t+1] = y[t] + v[t] * sin(psi[t]) * dt
+ psi_[t+1] = psi[t] + v[t] / Lf * delta[t] * dt
+ v_[t+1] = v[t] + a[t] * dt
+ cte[t+1] = f(x[t]) - y[t] + v[t] * sin(epsi[t]) * dt
+ epsi[t+1] = psi[t] - psides[t] + v[t] * delta[t] / Lf * dt
+ ```
+
+## Timestep Length and Elapsed Duration (N & dt)
+
+Here I choose 25 for N and 0.05 for dt. These values gave me the best and smooth vehicle control i the simulator. I tested these values for the vehicle speed from 30mph to about 80mph. You can change the speed limit using `ref_v` variable in MPC.cpp.
+
+## Polynomial Fitting and MPC Preprocessing
+
+The waypoints are used to polyfit the desired trajectory with 3rd polynomial fitting.
+In order to render the waypoints and polyfitted trajectory in simulator. All the points 
+are transformated from global coordination system to vehicle coordination system.
+This involves coordinate translation and rotation. ( main.cpp lines 104 - 111)
+
+## Model Predictive Control with Latency
+
+The Simulator in this case, has a 100ms latency. Latency is the time it takes for the system to perform the updates controls from the moment the singal was issued by the model. Latency should be taken into account in most cases because, the vehicle might not be in the same pocition where it was when We calcuated the control updates when we actually perform them on the vehicle physically. This might introduce lot of inaccuracies. 
+
+There are 2 basic ways to solve this problem. 
+
+1. The prospective position of the car is estimated based on its current speed and heading direction by propagating the position of the car forward until the expected time when actuations are expected to have an effect. The NMPC trajectory is then determined by solving the control problem starting from that position.
+
+2. The control problem is solved from the current position and time onwards. Latency is taken into account by constraining the controls to the values of the previous iteration for the duration of the latency. Thus the optimal trajectory is computed starting from the time after the latency period. This has the advantage that the dynamics during the latency period is still calculated according to the vehicle model.
+
+I adapted the 2nd option above and implemeted this in the Solve() function of the MPC class (MPC.cpp Lines 209 - 218).
+
+Here, the `latency` is set to 2 which is 100ms / 5ms (dt). This means that the controls of the first two time steps are not used in the optimization.
+
+
 ---
 
 ## Dependencies
