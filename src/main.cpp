@@ -124,10 +124,10 @@ int main() {
           state << 0, 0, 0, v, cte, epsi;
             
           // compute the optimal trajectory
-          auto results = mpc.Solve(state, coeffs);
+          Solution ret = mpc.Solve(state, coeffs);
             
-          double steer_value =  -results[0]/degree25_radian;
-          double throttle_value = results[1];
+          double steer_value = ret.Delta.at(2);
+          double throttle_value= ret.A.at(2);
         
           mpc.delta_prev = steer_value;
           mpc.a_prev = throttle_value;
@@ -135,7 +135,7 @@ int main() {
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
-          msgJson["steering_angle"] = steer_value;
+          msgJson["steering_angle"] = - steer_value / degree25_radian;
           msgJson["throttle"] = throttle_value;
 
           //Display the MPC predicted trajectory 
@@ -144,9 +144,9 @@ int main() {
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
-
-          msgJson["mpc_x"] = mpc_x_vals;
-          msgJson["mpc_y"] = mpc_y_vals;
+          
+          msgJson["mpc_x"] = ret.X;
+          msgJson["mpc_y"] = ret.Y;
 
           //Display the waypoints/reference line
           vector<double> next_x_vals;
@@ -154,6 +154,10 @@ int main() {
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
+          for (unsigned i=0 ; i < ptsx.size(); ++i) {
+            next_x_vals.push_back(Ptsx(i));
+            next_y_vals.push_back(Ptsy(i));
+          }
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
