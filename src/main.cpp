@@ -17,6 +17,8 @@ constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
 double rad2deg(double x) { return x * 180 / pi(); }
 
+const double degree25_radian = 0.436332;
+
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
 // else the empty string "" will be returned.
@@ -98,8 +100,37 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
-          double steer_value;
-          double throttle_value;
+            
+          //Convert the vehicle coordinate system into global
+          Eigen::VectorXd Ptsx(ptsx.size());
+          Eigen::VectorXd Ptsy(ptsx.size());
+          
+          for (auto i=0; i<ptsx.size(); ++i){
+                Ptsx[i] =   cos(psi) * (ptsx[i] - px) + sin(psi) * (ptsy[i] - py);
+                Ptsy[i] =  -sin(psi) * (ptsx[i] - px) + cos(psi) * (ptsy[i] - py);
+          }
+        
+          // fit a 3rd order polynomial to the waypoints
+          auto coeffs = polyfit(Ptsx, Ptsy, 3);
+            
+          // get cross-track error from fit
+          double cte = polyeval(coeffs, 0);
+            
+          //Get the orientation error
+          double epsi = -atan(coeffs[1]);
+            
+          // state in vehicle coordinates: x,y and orientation are always zero
+          Eigen::VectorXd state(6);
+          state << 0, 0, 0, v, cte, epsi;
+            
+          // compute the optimal trajectory
+          auto results = mpc.Solve(state, coeffs);
+            
+          double steer_value =  -results[0]/degree25_radian;
+          double throttle_value = results[1];
+        
+          mpc.delta_prev = steer_value;
+          mpc.a_prev = throttle_value;
 
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
